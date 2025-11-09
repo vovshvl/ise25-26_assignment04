@@ -24,8 +24,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 @Mapper(componentModel = "spring")
 @ConditionalOnMissingBean // prevent IntelliJ warning about duplicate beans
 public interface PosEntityMapper {
-    // TODO: The address logic is deliberately misaligned between the domain and persistence layers to demonstrate the
-    //  abstractions that hexagonal architecture provides.
+    // implNote: The address logic is deliberately misaligned between the domain and persistence layers
+    // to demonstrate the abstractions that hexagonal architecture provides.
 
     /**
      * Converts a JPA entity to a domain model.

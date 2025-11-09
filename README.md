@@ -76,3 +76,20 @@ Update title and description:
 ```shell
 curl --header "Content-Type: application/json" --request PUT --data '{"id":4,"name":"New coffee","description":"Great croissants","type":"CAFE","campus":"ALTSTADT","street":"Hauptstraße","houseNumber":"95","postalCode":69117,"city":"Heidelberg"}' http://localhost:8080/api/pos/4 # set correct POS id here and in the body
 ```
+
+
+## Real OpenStreetMap adapter (optional)
+
+By default, the application uses a stub OSM adapter to keep local development and tests deterministic and offline.
+If you want to fetch live data from OpenStreetMap, enable the `osm-http` Spring profile in addition to your current profile:
+
+```shell
+cd application
+mvn spring-boot:run -Dspring-boot.run.profiles=dev,osm-http
+```
+
+Notes:
+- The live adapter performs HTTP GET requests to `https://www.openstreetmap.org/api/0.6/node/{id}` and parses the XML `<tag>` elements.
+- HTTP 404/410 results in `OsmNodeNotFoundException` (HTTP 404 from the API).
+- Missing required tags (name / addr:street / addr:housenumber / addr:postcode / addr:city) result in `OsmNodeMissingFieldsException` (HTTP 400 from the API).
+- Keep tests on the default stub; do not enable `osm-http` during automated builds.

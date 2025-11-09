@@ -79,4 +79,32 @@ public class PosSystemTests extends AbstractSysTest {
                 .ignoringFields("createdAt", "updatedAt")
                 .isEqualTo(posToUpdate);
     }
+
+    @Test
+    void importPosFromOsm() {
+        Pos createdPos = posDtoMapper.toDomain(TestUtils.importPosFromOsm(5589879349L));
+
+        Pos expected = Pos.builder()
+                .name("Rada Coffee & Rösterei")
+                .description("Caffé und Rösterei")
+                .type(de.seuhd.campuscoffee.domain.model.PosType.CAFE)
+                .campus(de.seuhd.campuscoffee.domain.model.CampusType.ALTSTADT)
+                .street("Untere Straße")
+                .houseNumber("21")
+                .postalCode(69117)
+                .city("Heidelberg")
+                .build();
+
+        assertThat(createdPos)
+                .usingRecursiveComparison()
+                .ignoringFields("id", "createdAt", "updatedAt")
+                .isEqualTo(expected);
+
+        // fetch again to verify persistence
+        Pos fetched = posDtoMapper.toDomain(TestUtils.retrievePosById(createdPos.id()));
+        assertThat(fetched)
+                .usingRecursiveComparison()
+                .ignoringFields("createdAt", "updatedAt")
+                .isEqualTo(createdPos);
+    }
 }

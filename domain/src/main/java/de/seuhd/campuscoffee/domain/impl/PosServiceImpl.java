@@ -72,7 +72,6 @@ public class PosServiceImpl implements PosService {
         OsmNode osmNode = osmDataService.fetchNode(nodeId);
 
         // Convert OSM node to POS domain object and upsert it
-        // TODO: Implement the actual conversion (the response is currently hard-coded).
         Pos savedPos = upsert(convertOsmNodeToPos(osmNode));
         log.info("Successfully imported POS '{}' from OSM node {}", savedPos.name(), nodeId);
 
@@ -84,20 +83,80 @@ public class PosServiceImpl implements PosService {
      * Note: This is a stub implementation and should be replaced with real mapping logic.
      */
     private @NonNull Pos convertOsmNodeToPos(@NonNull OsmNode osmNode) {
-        if (osmNode.nodeId().equals(5589879349L)) {
-            return Pos.builder()
-                    .name("Rada Coffee & Rösterei")
-                    .description("Caffé und Rösterei")
-                    .type(PosType.CAFE)
-                    .campus(CampusType.ALTSTADT)
-                    .street("Untere Straße")
-                    .houseNumber("21")
-                    .postalCode(69117)
-                    .city("Heidelberg")
-                    .build();
-        } else {
+        var tags = osmNode.tags();
+
+        String name = tags.get("name");
+        String street = tags.get("addr:street");
+        String houseNumber = tags.get("addr:housenumber");
+        String postcode = tags.get("addr:postcode");
+        String city = tags.get("addr:city");
+
+        if (name == null || street == null || houseNumber == null || postcode == null || city == null) {
             throw new OsmNodeMissingFieldsException(osmNode.nodeId());
         }
+
+        // Description is optional in OSM. Fall back to empty string.
+        String description = tags.getOrDefault("description", "");
+
+        // Infer POS type from amenity/shop tags
+        PosType type = inferPosType(tags);
+
+        // Infer campus from address heuristics (simple rules for the exercise)
+        CampusType campus = inferCampus(street, city);
+
+        return Pos.builder()
+                .name(name)
+                .description(description)
+                .type(type)
+                .campus(campus)
+                .street(street)
+                .houseNumber(houseNumber)
+                .postalCode(parsePostalCode(postcode, osmNode.nodeId()))
+                .city(city)
+                .build();
+    }
+
+    private static int parsePostalCode(String postcode, Long nodeId) {
+        try {
+            return Integer.parseInt(postcode);
+        } catch (NumberFormatException e) {
+            throw new OsmNodeMissingFieldsException(nodeId);
+        }
+    }
+
+    private static PosType inferPosType(java.util.Map<String, String> tags) {
+        String amenity = tags.get("amenity");
+        String shop = tags.get("shop");
+
+        if (amenity != null) {
+            switch (amenity) {
+                case "cafe" -> { return PosType.CAFE; }
+                case "vending_machine" -> { return PosType.VENDING_MACHINE; }
+                case "cafeteria", "canteen" -> { return PosType.CAFETERIA; }
+                case "bakery" -> { return PosType.BAKERY; }
+            }
+        }
+        if (shop != null) {
+            if (shop.equals("bakery")) {
+                return PosType.BAKERY;
+            }
+        }
+        // Default to cafe if unknown, to allow import for typical coffee places
+        return PosType.CAFE;
+    }
+
+    private static CampusType inferCampus(String street, String city) {
+        if (city != null && !city.equalsIgnoreCase("Heidelberg")) {
+            // Unknown city: pick a generic campus for now
+            return CampusType.BERGHEIM;
+        }
+        if (street != null) {
+            String s = street.toLowerCase();
+            if (s.contains("im neuenheimer feld") || s.contains("berliner str")) {
+                return CampusType.INF;
+            }
+        }
+        return CampusType.ALTSTADT;
     }
 
     /**
